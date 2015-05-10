@@ -4,10 +4,11 @@
 #
 #  Author: wishinlife
 #  QQ: 57956720
-#  E-Mail: wishinlife@gmail.com, wishinlife@qq.com
-#  Web Home: http://syncyhome.duapp.com, http://hi.baidu.com/wishinlife
-#  Update date: 2015-04-06
-#  VERSION: 2.2.0
+#  QQ Group: 59160264
+#  E-Mail: wishinlife@qq.com
+#  Web Home: http://www.syncy.cn
+#  Update date: 2015-04-23
+#  VERSION: 2.2.1
 #  Required packages: kmod-nls-utf8, libopenssl, libcurl, python, python-curl
 #
 ####################################################################################################
@@ -40,8 +41,8 @@ __CONFIG_FILE__ = '/etc/config/syncy'
 __PIDFILE__ = '/var/run/syncy.pid'
 
 #  Don't modify the following.
-__VERSION__ = '2.2.0'
-__DEBUG__ = False    # True
+__VERSION__ = '2.2.1'
+__DEBUG__ = False
 
 def printlog(msg):
     fcntl.flock(sys.stdout, fcntl.LOCK_EX)
@@ -150,13 +151,14 @@ class SyncY():
                             else:
                                 SyncY.syncpath[str(len(SyncY.syncpath) - 1)]['remotepath'] = m[0][1]
                         else:
-                            SyncY.syncpath[str(len(SyncY.syncpath) - 1)][m[0][0].strip('\'')] = m[0][1]
+                            SyncY.syncpath[str(len(SyncY.syncpath) - 1)][m[0][0].strip('\'')] = m[0][1].replace('\\', '/')
                 line = sycfg.readline()
-        if SyncY.config['syncylog'] != '' and not os.path.exists(os.path.basename(SyncY.config['syncylog'])):
-            os.makedirs(os.path.basename(SyncY.config['syncylog']))
-        if SyncY.config['syncylog'] != '' and os.path.exists(SyncY.config['syncylog']) and os.path.isdir(SyncY.config['syncylog']):
-            SyncY.config['syncylog'] = self.__catpath(SyncY.config['syncylog'], 'syncy.log')
-            self.__save_config()
+        if SyncY.config['syncylog'] != '':
+            if not os.path.exists(os.path.dirname(SyncY.config['syncylog'])):
+                os.makedirs(os.path.dirname(SyncY.config['syncylog']))
+            if os.path.exists(SyncY.config['syncylog']) and os.path.isdir(SyncY.config['syncylog']):
+                SyncY.config['syncylog'] = self.__catpath(SyncY.config['syncylog'], 'syncy.log')
+                self.__save_config()
         if SyncY.oldSTDERR is None and SyncY.config['syncylog'] != '' and len(self.__argv) != 0 and self.__argv[0] in ['sybind', 'cpbind']:
             SyncY.oldSTDERR = sys.stderr
             SyncY.oldSTDOUT = sys.stdout
@@ -166,7 +168,7 @@ class SyncY():
         if 'refresh_token' not in SyncY.syncytoken or SyncY.syncytoken['refresh_token'] == '' or (len(self.__argv) != 0 and self.__argv[0] in ['sybind', 'cpbind']):
             sycurl = SYCurl()
             if (('device_code' not in SyncY.syncytoken or SyncY.syncytoken['device_code'] == '') and len(self.__argv) == 0) or (len(self.__argv) != 0 and self.__argv[0] == 'sybind'):
-                retcode, responses = sycurl.request('https://syncyhome.duapp.com/syserver', urlencode({'method': 'bind_device', 'scope': 'basic,netdisk'}), 'POST', SYCurl.Normal)
+                retcode, responses = sycurl.request('https://www.syncy.cn/syserver', urlencode({'method': 'bind_device', 'scope': 'basic,netdisk'}), 'POST', SYCurl.Normal)
                 responses = json.loads(responses)
                 if retcode != 200:
                     print('%s ERROR(Errno:%d): Get device code failed: %s.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), retcode, responses['error_msg']))
@@ -197,7 +199,7 @@ class SyncY():
                     SyncY.syncytoken['device_code'] = bindinfo['device_code']
                 else:
                     sys.exit(5)
-            retcode, responses = sycurl.request('https://syncyhome.duapp.com/syserver', urlencode({'method': 'get_device_token', 'code': SyncY.syncytoken['device_code'], 'edition': 'python', 'ver': __VERSION__}), 'POST', SYCurl.Normal)
+            retcode, responses = sycurl.request('https://www.syncy.cn/syserver', urlencode({'method': 'get_device_token', 'code': SyncY.syncytoken['device_code'], 'edition': 'python', 'ver': __VERSION__}), 'POST', SYCurl.Normal)
             responses = json.loads(responses)
             if retcode != 200:
                 print('%s ERROR(Errno:%d): Get device token failed: %s.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), retcode, responses['error_msg']))
@@ -264,7 +266,7 @@ class SyncY():
             print('%s ERROR: initialize parameters failed. %s\n%s' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), e, traceback.format_exc()))
             sys.exit(7)
 
-        self._excludefiles = SyncY.config['excludefiles'].replace('.', '\.').replace('*', '.*').replace('?', '.?').split(';')
+        self._excludefiles = SyncY.config['excludefiles'].replace('\\', '/').replace('.', '\.').replace('*', '.*').replace('?', '.?').split(';')
         for i in xrange(len(self._excludefiles)):
             self._excludefiles[i] = re.compile(eval('r"^' + self._excludefiles[i] + '$"'))
         self._excludefiles.append(re.compile(r'^.*\.syy$'))
@@ -348,14 +350,14 @@ class SyncY():
         retcode, responses = sycurl.request('https://openapi.baidu.com/rest/2.0/passport/users/getLoggedInUser', urlencode({'access_token': SyncY.syncytoken['access_token']}), 'POST', SYCurl.Normal)
         responses = json.loads(responses)
         if 'uid' in responses:
-            retcode, responses = sycurl.request('https://syncyhome.duapp.com/syserver', urlencode({'method': 'get_last_version', 'edition': 'python', 'ver': __VERSION__, 'uid': responses['uid'], 'code': SyncY.syncytoken['device_code']}), 'POST', SYCurl.Normal)
+            retcode, responses = sycurl.request('https://www.syncy.cn/syserver', urlencode({'method': 'get_last_version', 'edition': 'python', 'ver': __VERSION__, 'uid': responses['uid'], 'code': SyncY.syncytoken['device_code']}), 'POST', SYCurl.Normal)
             if retcode == 200 and responses.find('#') > -1:
                 (lastver, smessage) = responses.strip('\n').split('#', 1)
-                if lastver != __VERSION__:
+                if lastver > __VERSION__:
                     printlog('%s WARNING: %s' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), smessage.encode('utf8')))
         if (SyncY.syncytoken['refresh_date'] + SyncY.syncytoken['expires_in'] - 864000) > int(time.time()):
             return
-        retcode, responses = sycurl.request('https://syncyhome.duapp.com/syserver', urlencode({'method': 'refresh_access_token', 'refresh_token': SyncY.syncytoken['refresh_token'], 'code': SyncY.syncytoken['device_code']}), 'POST', SYCurl.Normal)
+        retcode, responses = sycurl.request('https://www.syncy.cn/syserver', urlencode({'method': 'refresh_access_token', 'refresh_token': SyncY.syncytoken['refresh_token'], 'code': SyncY.syncytoken['device_code']}), 'POST', SYCurl.Normal)
         responses = json.loads(responses)
         if retcode != 200:
             printlog('%s ERROR(Errno:%d): Refresh access token failed: %s.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), retcode, responses['error_msg']))
@@ -861,7 +863,7 @@ class SyncY():
                     self.errorcount_increase()
                     return 1
                 except Exception, e:
-                    printlog('%s ERROR: Upload file "%s" failed. %s\n%s' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), lfullpath, e, traceback.format_exc()))
+                    printlog('%s ERROR: Download file "%s" failed. %s\n%s' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), lfullpath, e, traceback.format_exc()))
                     self.errorcount_increase()
                     return 1
             if len(rfnlist) < SyncY.config['listnumber']:
@@ -927,7 +929,7 @@ class SyncY():
                     self.errorcount_increase()
                     return 1
                 except Exception, e:
-                    printlog('%s ERROR: Upload file "%s" failed. %s\n%s' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), lfullpath, e, traceback.format_exc()))
+                    printlog('%s ERROR: Download file "%s" failed. %s\n%s' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), lfullpath, e, traceback.format_exc()))
                     self.errorcount_increase()
                     return 1
             if len(rfnlist) < SyncY.config['listnumber']:
@@ -1072,7 +1074,7 @@ class SyncY():
                     self.errorcount_increase()
                     return 1
                 except Exception, e:
-                    printlog('%s ERROR: Upload file "%s" failed. %s\n%s' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), lfullpath, e, traceback.format_exc()))
+                    printlog('%s ERROR: Sync file "%s" failed. %s\n%s' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), lfullpath, e, traceback.format_exc()))
                     self.errorcount_increase()
                     return 1
             if len(rfnlist) < SyncY.config['listnumber']:
@@ -1125,7 +1127,7 @@ class SyncY():
                 self.errorcount_increase()
                 return 1
             except Exception, e:
-                printlog('%s ERROR: Upload file "%s" failed. %s\n%s' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), lfullpath, e, traceback.format_exc()))
+                printlog('%s ERROR: Sync file "%s" failed. %s\n%s' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), lfullpath, e, traceback.format_exc()))
                 self.errorcount_increase()
                 return 1
         return 0
@@ -1607,7 +1609,7 @@ class SYTask(threading.Thread):
         try:
             ret = 1
             if self.__op == SYCurl.Upload:
-                if os.path.exists(self.__filepath + '.db.syy') or SyncY.extraslice:
+                if os.path.exists(self.__filepath + '.db.syy') or (SyncY.extraslice and self.__fsize > 0):
                     ret = self.__slice_uploadfile()
                 else:
                     if self.__fsize <= 262144:
@@ -1638,8 +1640,8 @@ class SYTask(threading.Thread):
                 if self.__rsize > 0:
                     f.seek(self.__rsize - 1)
                     f.write('\0')
-                    f.flush()
-                    os.fsync(f.fileno())
+                f.flush()
+                os.fsync(f.fileno())
             except Exception, e:
                 printlog('%s ERROR: Create file "%s" failed. Exception: "%s".\n%s' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.__filepath, e, traceback.format_exc()))
                 return 1
@@ -1866,49 +1868,50 @@ class SYTask(threading.Thread):
                 dlfn.write('download:%s:%d\n' % (self.__rmd5, self.__rsize))
         if not os.path.exists('%s.syy' % self.__filepath) and self.__create_emptyfile() == 1:
             return 1
-        if self.__rsize <= 11 * 1048576:
-            if __DEBUG__:
-                printlog('%s Info(%s): start download whole file "%s".' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.name, self.__filepath))
-            sycurl = SYCurl()
-            retcode, responses = sycurl.request('https://d.pcs.baidu.com/rest/2.0/pcs/file?%s' % urlencode({'method': 'download', 'access_token': SyncY.syncytoken['access_token'], 'path': self.__pcspath}), '0-%d' % (self.__rsize - 1), 'GET', SYCurl.Download, '%s.syy' % self.__filepath)
-            if retcode != 200 and retcode != 206:
+        if self.__rsize > 0:
+            if self.__rsize <= 11 * 1048576:
                 if __DEBUG__:
-                    printlog('%s Info(%s): download file "%s" failed: %s.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.name, self.__filepath, responses))
-                responses = json.loads(responses)
-                printlog('%s ERROR(Errno:%d): Download file "%s" failed: %s.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), retcode, self.__pcspath, responses['error_msg']))
-                return 1
-        else:
-            with open('%s.db.syy' % self.__filepath, 'r') as dlfn:
-                SyncY.synctask[self.__fnmd5].append(dlfn.readline().strip('\n').split(':'))
-                SyncY.synctask[self.__fnmd5][0][2] = int(SyncY.synctask[self.__fnmd5][0][2])
-                line = dlfn.readline()
-                while line:
-                    sliceinfo = line.strip('\n').split(':')[1:]
-                    if sliceinfo[2] == '0':
-                        sliceinfo[2] = 2
-                    SyncY.synctask[self.__fnmd5].append([int(sliceinfo[0]), int(sliceinfo[1]), int(sliceinfo[2]), sliceinfo[3]])
+                    printlog('%s Info(%s): start download whole file "%s".' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.name, self.__filepath))
+                sycurl = SYCurl()
+                retcode, responses = sycurl.request('https://d.pcs.baidu.com/rest/2.0/pcs/file?%s' % urlencode({'method': 'download', 'access_token': SyncY.syncytoken['access_token'], 'path': self.__pcspath}), '0-%d' % (self.__rsize - 1), 'GET', SYCurl.Download, '%s.syy' % self.__filepath)
+                if retcode != 200 and retcode != 206:
+                    if __DEBUG__:
+                        printlog('%s Info(%s): download file "%s" failed: %s.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.name, self.__filepath, responses))
+                    responses = json.loads(responses)
+                    printlog('%s ERROR(Errno:%d): Download file "%s" failed: %s.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), retcode, self.__pcspath, responses['error_msg']))
+                    return 1
+            else:
+                with open('%s.db.syy' % self.__filepath, 'r') as dlfn:
+                    SyncY.synctask[self.__fnmd5].append(dlfn.readline().strip('\n').split(':'))
+                    SyncY.synctask[self.__fnmd5][0][2] = int(SyncY.synctask[self.__fnmd5][0][2])
                     line = dlfn.readline()
-            threadcond = threading.Condition()
-            if threadcond.acquire():
-                maxthnum = int(self.__rsize / 10485760)
-                if maxthnum > SyncY.config['threadnumber']:
-                    maxthnum = SyncY.config['threadnumber']
-                SyncY.synctask[self.__fnmd5][0].append(maxthnum)
-                SyncY.synctask[self.__fnmd5][0].append([])
-                for i in range(maxthnum):
-                    sythread = SYThread(threadcond, self.__fnmd5, self.__filepath, self.__pcspath, self.__blocksize)
-                    sythread.start()
-                if SyncY.synctask[self.__fnmd5][0][3] > 0:
-                    threadcond.wait()
-                threadcond.release()
-            if __DEBUG__:
-                printlog('%s Info(%s): all threads is exit for download file "%s".' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.name, self.__filepath))
-            if len(SyncY.synctask[self.__fnmd5][0][4]) > 0:
-                printlog('%s ERROR: Download file "%s" failed.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.__pcspath))
-                return 1
-            if int(SyncY.synctask[self.__fnmd5][len(SyncY.synctask[self.__fnmd5]) - 1][1]) != self.__rsize - 1:
-                printlog('%s ERROR: Download file "%s" failed, not download all slice.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.__pcspath))
-                return 1
+                    while line:
+                        sliceinfo = line.strip('\n').split(':')[1:]
+                        if sliceinfo[2] == '0':
+                            sliceinfo[2] = 2
+                        SyncY.synctask[self.__fnmd5].append([int(sliceinfo[0]), int(sliceinfo[1]), int(sliceinfo[2]), sliceinfo[3]])
+                        line = dlfn.readline()
+                threadcond = threading.Condition()
+                if threadcond.acquire():
+                    maxthnum = int(self.__rsize / 10485760)
+                    if maxthnum > SyncY.config['threadnumber']:
+                        maxthnum = SyncY.config['threadnumber']
+                    SyncY.synctask[self.__fnmd5][0].append(maxthnum)
+                    SyncY.synctask[self.__fnmd5][0].append([])
+                    for i in range(maxthnum):
+                        sythread = SYThread(threadcond, self.__fnmd5, self.__filepath, self.__pcspath, self.__blocksize)
+                        sythread.start()
+                    if SyncY.synctask[self.__fnmd5][0][3] > 0:
+                        threadcond.wait()
+                    threadcond.release()
+                if __DEBUG__:
+                    printlog('%s Info(%s): all threads is exit for download file "%s".' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.name, self.__filepath))
+                if len(SyncY.synctask[self.__fnmd5][0][4]) > 0:
+                    printlog('%s ERROR: Download file "%s" failed.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.__pcspath))
+                    return 1
+                if int(SyncY.synctask[self.__fnmd5][len(SyncY.synctask[self.__fnmd5]) - 1][1]) != self.__rsize - 1:
+                    printlog('%s ERROR: Download file "%s" failed, not download all slice.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.__pcspath))
+                    return 1
         os.remove('%s.db.syy' % self.__filepath)
         pmeta = os.stat(os.path.dirname('%s.syy' % self.__filepath))
         os.lchown('%s.syy' % self.__filepath, pmeta.st_uid, pmeta.st_gid)
@@ -1920,18 +1923,20 @@ class SYTask(threading.Thread):
             return 1
         if SyncY.extraslice:
             with open('%s.syy' % self.__filepath, 'rb+') as f:
-                f.seek(self.__rsize - 36)
+                if self.__rsize > 50:
+                    f.seek(self.__rsize - 36)
                 extraslice = f.read()
-                extraslice = extraslice.split('#')
-                if len(extraslice) == 5 and extraslice[1] == 'syy':
-                    lens = len(extraslice[3]) + len(extraslice[4])
-                    extraslice[3] = int(extraslice[3])
-                    extraslice[4] = int(extraslice[4])
-                    if self.__rsize == extraslice[3] + extraslice[4] + lens + 8:
-                        f.seek(extraslice[3])
-                        f.truncate(extraslice[3])
-                    else:
-                        printlog('%s ERROR: Remove file "%s"\'s extra slice failed, extra slice valid failed, please manual check and remove extra slice.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.__filepath))
+                if extraslice:
+                    extraslice = extraslice.split('#')
+                    if len(extraslice) == 5 and extraslice[1] == 'syy':
+                        lens = len(extraslice[3]) + len(extraslice[4])
+                        extraslice[3] = int(extraslice[3])
+                        extraslice[4] = int(extraslice[4])
+                        if self.__rsize == extraslice[3] + extraslice[4] + lens + 8:
+                            f.seek(extraslice[3])
+                            f.truncate(extraslice[3])
+                        else:
+                            printlog('%s ERROR: Remove file "%s"\'s extra slice failed, extra slice valid failed, please manual check and remove extra slice.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.__filepath))
         if self.__rmtime != 0:
             os.utime('%s.syy' % self.__filepath, (self.__rmtime, self.__rmtime))
         self.__fmtime = self.__rmtime
