@@ -10,12 +10,11 @@ You may obtain a copy of the License at
 
 	http://www.apache.org/licenses/LICENSE-2.0
 
-$Id: syncy.lua 2014-04-30 wishinlife $
+$Id: syncy.lua 2015-04-26 wishinlife $
 SyncY Author: wishinlife
 QQ: 57956720
-E-Mail: wishinlife@gmail.com
-Web Home: http://hi.baidu.com/wishinlife
-Blog: http://syncyhome.duapp.com
+E-Mail: wishinlife@gmail.com, wishinlife@qq.com
+Web Home: http://www.syncy.cn
 ]]--
 
 module("luci.controller.syncy", package.seeall)

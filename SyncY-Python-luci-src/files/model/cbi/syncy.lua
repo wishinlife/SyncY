@@ -10,11 +10,11 @@ You may obtain a copy of the License at
 
 	http://www.apache.org/licenses/LICENSE-2.0
 
-$Id: syncy.lua 2015-04-09 wishinlife $
+$Id: syncy.lua 2015-04-26 wishinlife $
 SyncY Author: wishinlife
 QQ: 57956720
-E-Mail: wishinlife@gmail.com
-Web Home: http://syncyhome.duapp.com
+E-Mail: wishinlife@gmail.com, wishinlife@qq.com
+Web Home: http://www.syncy.cn
 ]]--
 
 local _version = luci.sys.exec("/usr/bin/syncy.py version")
@@ -38,9 +38,9 @@ s:tab("sylog", translate("日志"), translate(logdesp))
 s:tab("about", translate("关于"))
 
 --[[关于]]--
-s:taboption("about",DummyValue,"moreinfo", translate("</label><div style=\"height:110px;padding-top:10px;\"><div style=\"float:left;width:700px;border-right:1px solid #CCC;height:110px;\" id=\"cur-ver\" curver=\"%s\">作者：WishInLife<br/>版本：%s（<span id=\"new-ver\"></span>）<br/>使用前请阅读<a target=\"_blank\" href=\"http://syncyhome.duapp.com/index.php/about/license/\">使用协议</a><br/><strong>更多详情请访问：<a target=\"_blank\" href=\"http://syncyhome.duapp.com\">http://syncyhome.duapp.com</a></strong><br/><br/><span style=\"color:blue;\">如果您觉得SyncY还不错，可通过<a style=\"color: #ff0000;\" href=\"https://shenghuo.alipay.com/send/payment/fill.htm\" target=\"_blank\">支付宝</a>给作者捐赠。收款人：<span style=\"color:red;\">wishinlife@gmail.com</span><br/>感谢您对SyncY的认可和支持。</span></div><div id=\"new-donor\" style=\"float:left;width:200px;\"></div></div><label>" %{_version, _version}))
+s:taboption("about",DummyValue,"moreinfo", translate("</label><div style=\"height:110px;padding-top:10px;\"><div style=\"float:left;width:700px;border-right:1px solid #CCC;height:110px;\" id=\"cur-ver\" curver=\"%s\">作者：WishInLife<br/>版本：%s（<span id=\"new-ver\"></span>）<br/>使用前请阅读<a target=\"_blank\" href=\"http://www.syncy.cn/index.php/about/license/\">使用协议</a><br/><strong>更多详情请访问：<a target=\"_blank\" href=\"http://www.syncy.cn\">http://www.syncy.cn</a></strong><br/><br/><span style=\"color:blue;\">如果您觉得SyncY还不错，可通过<a style=\"color: #ff0000;\" href=\"https://shenghuo.alipay.com/send/payment/fill.htm\" target=\"_blank\">支付宝</a>给作者捐赠。收款人：<span style=\"color:red;\">wishinlife@gmail.com</span><br/>感谢您对SyncY的认可和支持。</span></div><div id=\"new-donor\" style=\"float:left;width:200px;\"></div></div><label>" %{_version, _version}))
 s:taboption("about",DummyValue,"moreinfo1", translate("</label><div style=\"font-weight:bold;color:red;\">注意：请勿删除本地同步根目录下的.syncy.info.db文件。<script type=\"text/javascript\" src=\"/luci-static/resources/jQ-syncy.js\"></script></div><label>"))
-s:taboption("about",DummyValue,"moreinfo2", translate("</label><div style=\"font-weight:bold;\">详细帮助信息请访问：<a href=\"http://syncyhome.duapp.com/index.php/syncyconfighelp/\" target=\"_blank\">http://syncyhome.duapp.com/index.php/syncyconfighelp/</a></div><label>"))
+s:taboption("about",DummyValue,"moreinfo2", translate("</label><div style=\"font-weight:bold;\">详细帮助信息请访问：<a href=\"http://www.syncy.cn/index.php/syncyconfighelp/\" target=\"_blank\">http://www.syncy.cn/index.php/syncyconfighelp/</a></div><label>"))
 
 --[[日志]]--
 cl = s:taboption("sylog", Button, "clear", translate("清空日志"))
