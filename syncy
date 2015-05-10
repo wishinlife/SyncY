@@ -1,9 +1,11 @@
 
 config syncy
+	option syncyerrlog ''
 	option syncylog ''
 	option blocksize '10'
 	option ondup 'rename'
 	option datacache 'on'
+	option slicedownload 'on'
 	option excludefiles '*/Thumbs.db'
 	option listnumber '100'
 	option retrytimes '3'
@@ -13,12 +15,12 @@ config syncy
 	option speedlimitperiod '0-0'
 	option syncperiod '0-24'
 	option syncinterval '3600'
-	option tasknumber '2'
+	option tasknumber '1'
 	option threadnumber '2'
 
 config syncpath
 	#option localpath '/mnt/example'
-	#option remotepath '/apps/SyncY/example'
+	#option remotepath '/example'
 	#option enable '1'
 	#option synctype 'upload'
 
