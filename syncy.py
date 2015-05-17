@@ -7,8 +7,8 @@
 #  QQ Group: 59160264
 #  E-Mail: wishinlife@qq.com
 #  Web Home: http://www.syncy.cn
-#  Update date: 2015-04-23
-#  VERSION: 2.2.1
+#  Update date: 2015-05-17
+#  VERSION: 2.3.0
 #  Required packages: kmod-nls-utf8, libopenssl, libcurl, python, python-curl
 #
 ####################################################################################################
@@ -20,7 +20,6 @@ import time
 import re
 import struct
 import hashlib
-import zlib
 from urllib import urlencode  # , quote_plus
 import threading
 import traceback
@@ -30,26 +29,36 @@ import fcntl
 # if '/usr/lib/python2.7/site-packages' not in sys.path:
 #    sys.path.append('/usr/lib/python2.7/site-packages')
 import pycurl
-# import binascii
+import binascii
+# import types    # 2.3.0 add
+# import zlib
 # import fileinput
 if sys.getdefaultencoding() != 'utf-8':
     reload(sys)
     sys.setdefaultencoding('utf-8')
-
+try:    # require python-crypto
+    from Crypto.Cipher import ARC4
+    from Crypto.Cipher import Blowfish
+    from Crypto.Cipher import AES
+except Exception, ex:
+    pass
 # set config_file and pidfile for your config storage path.
 __CONFIG_FILE__ = '/etc/config/syncy'
 __PIDFILE__ = '/var/run/syncy.pid'
 
 #  Don't modify the following.
-__VERSION__ = '2.2.1'
+__VERSION__ = '2.3.0'
+__author__ = "WishInLife <wishinlife@qq.com>"
 __DEBUG__ = False
+
+
 
 def printlog(msg):
     fcntl.flock(sys.stdout, fcntl.LOCK_EX)
     print(msg)
     fcntl.flock(sys.stdout, fcntl.LOCK_UN)
 
-class SyncY():
+class SyncY:
     synccount = 0
     errorcount = 0
     failcount = 0
@@ -64,6 +73,8 @@ class SyncY():
     basedirlen = None
     syncpath = {}
     extraslice = None
+    encryption = None
+    encryptkey = ''
     config = {
         'syncylog'		: '',
         'blocksize'		: 10,
@@ -1172,6 +1183,31 @@ class SyncY():
                 else:
                     SyncY.sydblen = os.stat(SyncY.syncydb).st_size
                     SyncY.sydb = open(SyncY.syncydb, 'rb')
+                if 'extraslice' in SyncY.syncpath[str(i)] and 'encryption' in SyncY.syncpath[str(i)]:
+                    printlog('%s ERROR Sync path: "%s" failed, extraslice and encryption can not used together.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), ipath))
+                    continue
+                if 'encryption' in SyncY.syncpath[str(i)] and SyncY.syncpath[str(i)]['encryption'] != '0' and SyncY.syncpath[str(i)]['encryption'] != '':
+                    if SyncY.syncpath[str(i)]['encryption'].upper() in ['1', '2', '3', 'ARC4', 'BLOWFISH', 'AES']:
+                        if 'encryptkey' not in SyncY.syncpath[str(i)]:
+                            printlog('%s ERROR Sync path: "%s" failed, encryptkey is not set.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), ipath))
+                            continue
+                        SyncY.encryption = SyncY.syncpath[str(i)]['encryption'].upper()
+                        if SyncY.encryption == 'ARC4':
+                            SyncY.encryption = '1'
+                        elif SyncY.encryption == 'BLOWFISH':
+                            SyncY.encryption = '2'
+                        elif SyncY.encryption == 'AES':
+                            SyncY.encryption = '3'
+                        SyncY.encryptkey = SyncY.syncpath[str(i)]['encryptkey']
+                        if len(SyncY.encryptkey) < 8 or len(SyncY.encryptkey) > 56:
+                            printlog('%s ERROR Sync path: "%s" failed, encryptkey is invalid, the length of encryptkey must great-than-or-equal 8 and less-than-or-equal-to 56.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), ipath))
+                            continue
+                    else:
+                        printlog('%s ERROR Sync path: "%s" failed, encryption is invalid, must is ARC4 or BLOWFISH or AES.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), ipath))
+                        continue
+                else:
+                    SyncY.encryption = '0'
+                    SyncY.encryptkey = ''
                 if 'extraslice' in SyncY.syncpath[str(i)] and SyncY.syncpath[str(i)]['extraslice'] == '1':
                     SyncY.extraslice = True
                 else:
@@ -1469,7 +1505,8 @@ class SyncY():
         elif not (self.__argv[0] in ["sybind", "cpbind"]):
             printlog('%s WARNING: Unknown command "%s"' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), ' '.join(self.__argv)))
 
-class SYCurl():
+
+class SYCurl:
     Normal = 0
     Upload = 1
     Download = 2
@@ -1480,20 +1517,57 @@ class SYCurl():
         self.__fd = None
         self.__startpos = 0
         self.__endpos = None
+        self.__buffer = ''
+
+    @staticmethod
+    def __init_cipher(crypt, key):
+        if crypt == '1':
+            return ARC4.new(key)
+        elif crypt == '2':
+            return Blowfish.new(key, Blowfish.MODE_CFB, segment_size=8)
+        elif crypt == '3':
+            return AES.new(key.ljust(32, '.')[0:32], Blowfish.MODE_CFB, segment_size=8)
+        else:
+            return None
 
     def __write_data(self, rsp):
-        rsplen = len(rsp)
         if self.__op == SYCurl.Download:
-            if self.__startpos + rsplen - 1 > self.__endpos:
+            if self.__startpos + len(self.__buffer) + len(rsp) - 1 > self.__endpos:
                 return 0
-            self.__fd.write(rsp)
-            self.__startpos += rsplen
+            if SyncY.encryption == '0':
+                self.__fd.write(rsp)
+                self.__startpos += len(rsp)
+            else:
+                self.__buffer += rsp
+                while len(self.__buffer) >= 4096 or self.__startpos + len(self.__buffer) - 1 == self.__endpos:
+                    cipher = self.__init_cipher(SyncY.encryption, SyncY.encryptkey)
+                    self.__fd.write(cipher.decrypt(self.__buffer[0:4096]))
+                    self.__startpos += 4096
+                    self.__buffer = self.__buffer[4096:]
         else:
             self.__response += rsp
         return len(rsp)
 
     def __read_data(self, size):
-        return self.__fd.read(size)
+        if self.__startpos > self.__endpos:
+            return ''
+        elif self.__startpos + size - 1 > self.__endpos:
+            size = self.__endpos - self.__startpos + 1
+        if SyncY.encryption == '0':
+            self.__startpos += size
+            return self.__fd.read(size)
+        else:
+            while len(self.__buffer) < size:
+                rst = self.__fd.read(4096)
+                if rst:
+                    cipher = self.__init_cipher(SyncY.encryption, SyncY.encryptkey)
+                    self.__buffer += cipher.encrypt(rst)
+                else:
+                    break
+            rst = self.__buffer[0:size]
+            self.__buffer = self.__buffer[size:]
+            self.__startpos += size
+            return rst
 
     @staticmethod
     def __write_header(rsp):
@@ -1514,7 +1588,7 @@ class SYCurl():
             try:
                 curl.setopt(pycurl.URL, url)
                 curl.setopt(pycurl.SSL_VERIFYPEER, 0)
-                curl.setopt(pycurl.SSL_VERIFYHOST, 2)
+                curl.setopt(pycurl.SSL_VERIFYHOST, 0)
                 curl.setopt(pycurl.FOLLOWLOCATION, 1)
                 curl.setopt(pycurl.CONNECTTIMEOUT, 15)
                 curl.setopt(pycurl.LOW_SPEED_LIMIT, 1)
@@ -1533,10 +1607,10 @@ class SYCurl():
                     curl.setopt(pycurl.MAX_RECV_SPEED_LARGE, SyncY.config['maxrecvspeed'] / SyncY.config['tasknumber'] / SyncY.config['threadnumber'])
                 if self.__op == SYCurl.Upload:
                     curl.setopt(pycurl.UPLOAD, 1)
+                    curl.setopt(pycurl.READFUNCTION, self.__read_data)
+                    curl.setopt(pycurl.INFILESIZE, self.__endpos - startpos + 1)
                     with open(fnname, 'rb') as self.__fd:
                         self.__fd.seek(startpos)
-                        curl.setopt(pycurl.READDATA, self.__fd)
-                        curl.setopt(pycurl.INFILESIZE, self.__endpos - startpos + 1)
                         fcntl.flock(self.__fd, fcntl.LOCK_SH)
                         curl.perform()
                         fcntl.flock(self.__fd, fcntl.LOCK_UN)
@@ -1573,12 +1647,14 @@ class SYCurl():
                 if __DEBUG__:
                     printlog('%s Info(%s): Complete curl request(%s) %d times for %s.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), threading.currentThread().name, rdata, retrycnt + 1, fnname))
 
+
 class ThreadTest(threading.Thread):
     def __init__(self):
         threading.Thread.__init__(self, name='ThreadTest')
 
     def run(self):
         print('%s INFO: Multi thread test success.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())))
+
 
 class SYTask(threading.Thread):
     Upload = 1
@@ -1601,7 +1677,7 @@ class SYTask(threading.Thread):
         if self.__op == self.Upload:
             blocksize = int(self.__fsize / 1022) + 1
             if blocksize > self.__blocksize:
-                self.__blocksize = blocksize
+                self.__blocksize = (0x100000 - (blocksize & 0xfffff) & 0xfffff) + blocksize
 
     def run(self):
         if __DEBUG__:
@@ -1614,6 +1690,11 @@ class SYTask(threading.Thread):
                 else:
                     if self.__fsize <= 262144:
                         ret = self.__upload_file()
+                    elif SyncY.encryption != '0':
+                        if self.__fsize <= self.__blocksize + 1048576:
+                            ret = self.__upload_file()
+                        else:
+                            ret = self.__slice_uploadfile()
                     else:
                         ret = self.__rapid_uploadfile()
             elif self.__op == SYCurl.Download:
@@ -1691,7 +1772,7 @@ class SYTask(threading.Thread):
             crc = 0
             while fbuffer:
                 m.update(fbuffer)
-                crc = zlib.crc32(fbuffer, crc) & 0xffffffff
+                crc = binascii.crc32(fbuffer, crc) & 0xffffffff
                 fbuffer = fh.read(8192)
             cmd5 = m.hexdigest()
             m = hashlib.md5()
@@ -1732,7 +1813,7 @@ class SYTask(threading.Thread):
         if retcode != 200:
             if responses['error_code'] == 31079:
                 printlog('%s INFO: File md5 not found, upload the whole file "%s".' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.__filepath))
-                if self.__fsize <= 11 * 1048576:
+                if self.__fsize <= self.__blocksize + 1048576:
                     return self.__upload_file()
                 else:
                     return self.__slice_uploadfile()
@@ -1766,15 +1847,16 @@ class SYTask(threading.Thread):
             return 1
         if not os.path.exists('%s.db.syy' % self.__filepath):
             with open('%s.db.syy' % self.__filepath, 'w') as ulfn:
-                ulfn.write('upload:%d:%d\n' % (self.__fmtime, self.__fsize))
-            SyncY.synctask[self.__fnmd5].append(['upload', self.__fmtime, self.__fsize])
+                ulfn.write('upload:%d:%d:%s\n' % (self.__fmtime, self.__fsize, SyncY.encryption))
+            SyncY.synctask[self.__fnmd5].append(['upload', self.__fmtime, self.__fsize, SyncY.encryption])
         else:
             with open('%s.db.syy' % self.__filepath, 'r') as ulfn:
                 line = ulfn.readline()
-            if line.strip('\n') != 'upload:%d:%d' % (self.__fmtime, self.__fsize):
+            if line.strip('\n') != 'upload:%d:%d:%s' % (self.__fmtime, self.__fsize, SyncY.encryption):
                 with open('%s.db.syy' % self.__filepath, 'w') as ulfn:
-                    ulfn.write('upload:%d:%d\n' % (self.__fmtime, self.__fsize))
-                printlog('%s INFO: Local file "%s" is modified, reupload the whole file.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.__filepath))
+                    ulfn.write('upload:%d:%d:%s\n' % (self.__fmtime, self.__fsize, SyncY.encryption))
+                printlog('%s INFO: Local file "%s" is modified or encryption algorithm is modified, reupload the whole file.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.__filepath))
+                SyncY.synctask[self.__fnmd5].append(['upload', self.__fmtime, self.__fsize, SyncY.encryption])
             else:
                 with open('%s.db.syy' % self.__filepath, 'r') as ulfn:
                     SyncY.synctask[self.__fnmd5].append(ulfn.readline().strip('\n').split(':'))
@@ -1789,7 +1871,7 @@ class SYTask(threading.Thread):
                 printlog('%s INFO: Resuming slice upload file "%s".' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.__filepath))
         threadcond = threading.Condition()
         if threadcond.acquire():
-            maxthnum = int(self.__fsize / 10485760)
+            maxthnum = int(self.__fsize / self.__blocksize)
             if SyncY.extraslice and maxthnum == 0:
                 maxthnum = 1
             elif maxthnum > SyncY.config['threadnumber']:
@@ -1799,12 +1881,12 @@ class SYTask(threading.Thread):
             for i in range(maxthnum):
                 sythread = SYThread(threadcond, self.__fnmd5, self.__filepath, self.__pcspath, self.__blocksize)
                 sythread.start()
-            if SyncY.synctask[self.__fnmd5][0][3] > 0:
+            if SyncY.synctask[self.__fnmd5][0][4] > 0:
                 threadcond.wait()
             threadcond.release()
         if __DEBUG__:
             printlog('%s Info(%s): all threads is exit for upload file "%s".' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.name, self.__filepath))
-        if len(SyncY.synctask[self.__fnmd5][0][4]) > 0:
+        if len(SyncY.synctask[self.__fnmd5][0][5]) > 0:
             printlog('%s ERROR: Slice upload file "%s" failed.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.__filepath))
             return 1
         param = {'block_list': []}
@@ -1852,24 +1934,24 @@ class SYTask(threading.Thread):
         if os.path.exists('%s.db.syy' % self.__filepath) and os.path.exists('%s.syy' % self.__filepath):
             with open('%s.db.syy' % self.__filepath, 'r') as dlfn:
                 dlinfo = dlfn.readlines()
-            if dlinfo[0].strip('\n') != 'download:%s:%d' % (self.__rmd5, self.__rsize):
+            if dlinfo[0].strip('\n') != 'download:%s:%d:%s' % (self.__rmd5, self.__rsize, SyncY.encryption):
                 with open('%s.db.syy' % self.__filepath, 'w') as dlfn:
-                    dlfn.write('download:%s:%d\n' % (self.__rmd5, self.__rsize))
-                printlog('%s INFO: Remote file:"%s" is modified, redownload the whole file.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.__pcspath))
+                    dlfn.write('download:%s:%d:%s\n' % (self.__rmd5, self.__rsize, SyncY.encryption))
+                printlog('%s INFO: Remote file:"%s" is modified or encryption algorithm is modified, redownload the whole file.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.__pcspath))
                 os.remove(self.__filepath)
             else:
                 if os.path.exists('%s.syy' % self.__filepath):
                     printlog('%s INFO: Resuming download file "%s".' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.__pcspath))
                 else:
                     with open('%s.db.syy' % self.__filepath, 'w') as dlfn:
-                        dlfn.write('download:%s:%d\n' % (self.__rmd5, self.__rsize))
+                        dlfn.write('download:%s:%d:%s\n' % (self.__rmd5, self.__rsize, SyncY.encryption))
         else:
             with open('%s.db.syy' % self.__filepath, 'w') as dlfn:
-                dlfn.write('download:%s:%d\n' % (self.__rmd5, self.__rsize))
+                dlfn.write('download:%s:%d:%s\n' % (self.__rmd5, self.__rsize, SyncY.encryption))
         if not os.path.exists('%s.syy' % self.__filepath) and self.__create_emptyfile() == 1:
             return 1
         if self.__rsize > 0:
-            if self.__rsize <= 11 * 1048576:
+            if self.__rsize <= self.__blocksize + 1048576:
                 if __DEBUG__:
                     printlog('%s Info(%s): start download whole file "%s".' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.name, self.__filepath))
                 sycurl = SYCurl()
@@ -1893,7 +1975,7 @@ class SYTask(threading.Thread):
                         line = dlfn.readline()
                 threadcond = threading.Condition()
                 if threadcond.acquire():
-                    maxthnum = int(self.__rsize / 10485760)
+                    maxthnum = int(self.__rsize / self.__blocksize)
                     if maxthnum > SyncY.config['threadnumber']:
                         maxthnum = SyncY.config['threadnumber']
                     SyncY.synctask[self.__fnmd5][0].append(maxthnum)
@@ -1901,12 +1983,12 @@ class SYTask(threading.Thread):
                     for i in range(maxthnum):
                         sythread = SYThread(threadcond, self.__fnmd5, self.__filepath, self.__pcspath, self.__blocksize)
                         sythread.start()
-                    if SyncY.synctask[self.__fnmd5][0][3] > 0:
+                    if SyncY.synctask[self.__fnmd5][0][4] > 0:
                         threadcond.wait()
                     threadcond.release()
                 if __DEBUG__:
                     printlog('%s Info(%s): all threads is exit for download file "%s".' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.name, self.__filepath))
-                if len(SyncY.synctask[self.__fnmd5][0][4]) > 0:
+                if len(SyncY.synctask[self.__fnmd5][0][5]) > 0:
                     printlog('%s ERROR: Download file "%s" failed.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.__pcspath))
                     return 1
                 if int(SyncY.synctask[self.__fnmd5][len(SyncY.synctask[self.__fnmd5]) - 1][1]) != self.__rsize - 1:
@@ -1929,12 +2011,9 @@ class SYTask(threading.Thread):
                 if extraslice:
                     extraslice = extraslice.split('#')
                     if len(extraslice) == 5 and extraslice[1] == 'syy':
-                        lens = len(extraslice[3]) + len(extraslice[4])
-                        extraslice[3] = int(extraslice[3])
-                        extraslice[4] = int(extraslice[4])
-                        if self.__rsize == extraslice[3] + extraslice[4] + lens + 8:
-                            f.seek(extraslice[3])
-                            f.truncate(extraslice[3])
+                        if self.__rsize == int(extraslice[3]) + int(extraslice[4]) + len(extraslice[3]) + len(extraslice[4]) + 8:
+                            f.seek(int(extraslice[3]))
+                            f.truncate(int(extraslice[3]))
                         else:
                             printlog('%s ERROR: Remove file "%s"\'s extra slice failed, extra slice valid failed, please manual check and remove extra slice.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.__filepath))
         if self.__rmtime != 0:
@@ -1945,6 +2024,7 @@ class SYTask(threading.Thread):
         self.__save_data()
         printlog('%s INFO: Download file "%s" completed.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.__pcspath))
         return 0
+
 
 class SYThread(threading.Thread):
     def __init__(self, threadcond, fnmd5, filepath, pcspath, blocksize):
@@ -2014,16 +2094,16 @@ class SYThread(threading.Thread):
             if self.__threadcond.acquire():
                 if idx != 0:
                     SyncY.synctask[self.__fnmd5][idx][2] = 2
-                    SyncY.synctask[self.__fnmd5][0][4].append(idx)
+                    SyncY.synctask[self.__fnmd5][0][5].append(idx)
                 self.__save_status()
-                SyncY.synctask[self.__fnmd5][0][3] -= 1
-                if SyncY.synctask[self.__fnmd5][0][3] == 0:
+                SyncY.synctask[self.__fnmd5][0][4] -= 1
+                if SyncY.synctask[self.__fnmd5][0][4] == 0:
                     self.__threadcond.notify()
                 self.__threadcond.release()
 
     def __save_status(self):
         with open('%s.dbtmp.syy' % self.__filepath, 'w') as dbnew:
-            dbnew.write('%s:%s:%d\n' % (SyncY.synctask[self.__fnmd5][0][0], SyncY.synctask[self.__fnmd5][0][1], SyncY.synctask[self.__fnmd5][0][2]))
+            dbnew.write('%s:%s:%d:%s\n' % (SyncY.synctask[self.__fnmd5][0][0], SyncY.synctask[self.__fnmd5][0][1], SyncY.synctask[self.__fnmd5][0][2], SyncY.synctask[self.__fnmd5][0][3]))
             for i in xrange(1, len(SyncY.synctask[self.__fnmd5]), 1):
                 dbnew.write('%d:%d:%d:%d:%s\n' % (i, SyncY.synctask[self.__fnmd5][i][0], SyncY.synctask[self.__fnmd5][i][1], SyncY.synctask[self.__fnmd5][i][2], SyncY.synctask[self.__fnmd5][i][3]))
             dbnew.flush()
@@ -2033,7 +2113,7 @@ class SYThread(threading.Thread):
     def __get_next_slice(self):
         idx, startpos, endpos = (0, 0, 0)
         for i in xrange(1, len(SyncY.synctask[self.__fnmd5]), 1):
-            if SyncY.synctask[self.__fnmd5][i][2] not in [1, 0] and i not in SyncY.synctask[self.__fnmd5][0][4]:
+            if SyncY.synctask[self.__fnmd5][i][2] not in [1, 0] and i not in SyncY.synctask[self.__fnmd5][0][5]:
                 idx = i
                 startpos = SyncY.synctask[self.__fnmd5][i][0]
                 endpos = SyncY.synctask[self.__fnmd5][i][1]
