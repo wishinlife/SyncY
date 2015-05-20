@@ -21,5 +21,7 @@ config syncpath
 	#option remotepath '/apps/SyncY/example'
 	#option enable '1'
 	#option synctype 'upload'
+	#option encryption 'ARC4'	# 0 is disable encryption
+	#option encryptkey 'This is a encrypt key'
 
 config syncytoken
