@@ -43,12 +43,12 @@ except ImportError, ex:
 if os.name == 'nt':
     _CONFIG_FILE = './syncy'
     _PIDFILE = './syncy.pid'
-    _CHARSET = 'GBK'     # windows charset
+    _CHARSET = 'GBK'
     _TMP_DIR = os.environ['TMP'].replace('\\', '/')
 else:
     _CONFIG_FILE = '/etc/config/syncy'
     _PIDFILE = '/var/run/syncy.pid'
-    _CHARSET = 'UTF-8'   # linux charset
+    _CHARSET = 'UTF-8'
     _TMP_DIR = '/tmp'
 
 if sys.getdefaultencoding() != _CHARSET:

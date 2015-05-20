@@ -16,12 +16,4 @@ config syncy
 	option tasknumber '2'
 	option threadnumber '2'
 
-config syncpath
-	#option localpath '/mnt/example'
-	#option remotepath '/apps/SyncY/example'
-	#option enable '1'
-	#option synctype 'upload'
-	#option encryption 'ARC4'	# 0 is disable encryption
-	#option encryptkey 'This is a encrypt key'
-
 config syncytoken
