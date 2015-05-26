@@ -7,8 +7,8 @@
 #  QQ Group: 59160264
 #  E-Mail: wishinlife@qq.com
 #  Web Home: http://www.syncy.cn
-#  Update date: 2015-05-20
-#  VERSION: 2.5.0
+#  Update date: 2015-05-26
+#  VERSION: 2.5.1
 #  Required packages: kmod-nls-utf8, libopenssl, libcurl, python, python-curl, python-crypto
 #
 ####################################################################################################
@@ -43,12 +43,12 @@ except ImportError, ex:
 if os.name == 'nt':
     _CONFIG_FILE = './syncy'
     _PIDFILE = './syncy.pid'
-    _CHARSET = 'GBK'
+    _CHARSET = 'GBK'    # windows charset
     _TMP_DIR = os.environ['TMP'].replace('\\', '/')
 else:
     _CONFIG_FILE = '/etc/config/syncy'
     _PIDFILE = '/var/run/syncy.pid'
-    _CHARSET = 'UTF-8'
+    _CHARSET = 'UTF-8'  # linux charset
     _TMP_DIR = '/tmp'
 
 if sys.getdefaultencoding() != _CHARSET:
@@ -56,7 +56,7 @@ if sys.getdefaultencoding() != _CHARSET:
     sys.setdefaultencoding(_CHARSET)
 
 #  Don't modify the following.
-_VERSION = '2.5.0'
+_VERSION = '2.5.1'
 _DEBUG = False
 __author__ = "WishInLife <wishinlife@qq.com>"
 
@@ -1581,7 +1581,7 @@ class SYCurl:
         elif crypt == '2':
             return Blowfish.new(key, Blowfish.MODE_CFB, segment_size=8)
         elif crypt == '3':
-            return AES.new(key.ljust(32, '.')[0:32], Blowfish.MODE_CFB, segment_size=8)
+            return AES.new(key.ljust(32, '.')[0:32], AES.MODE_CFB, segment_size=8)
         else:
             return None
 
@@ -1685,7 +1685,7 @@ class SYCurl:
                         lockf(self.__fd, LOCK_UN, self.__endpos - startpos + 1, startpos, 0)
                 else:
                     curl.setopt(pycurl.CUSTOMREQUEST, method)
-                    if method == 'POST' and rdata:
+                    if method == 'POST':
                         curl.setopt(pycurl.POSTFIELDS, urlencode(rdata))
                     curl.perform()
                 retcode = curl.getinfo(pycurl.HTTP_CODE)
