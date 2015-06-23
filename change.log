@@ -1,3 +1,8 @@
+2015-06-23
+v2.5.2
+1、解决了极低概率的出现记录文件下载信息的文件损坏，导致报“IndexError:list index out of range”的错误而无法下载的问题。
+2、解决了极低概率的出现文件上传完成，服务器返回http状态码为200，但返回内容体为“error_code:0,error_msg:no error”的非正常信息，导致线程出错不能结束退出，致使主线程在一直等待线程退出而出现假死情况。
+
 2015-05-26
 v2.5.1
 1、解决了在创建远程目录和秒传文件时报ValueError: No JSON object could be decoded的错误（只有2.5.0版有此bug）。
