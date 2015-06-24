@@ -7,7 +7,7 @@
 #  QQ Group: 59160264
 #  E-Mail: wishinlife@qq.com
 #  Web Home: http://www.syncy.cn
-#  Update date: 2015-06-07
+#  Update date: 2015-06-23
 #  VERSION: 2.5.2
 #  Required packages: kmod-nls-utf8, libopenssl, libcurl, python, python-curl, python-crypto
 #  If import python-crypto package, SyncY can support ARC4、Blowfish and AES encryption.
@@ -2152,6 +2152,8 @@ class SYThread(threading.Thread):
                     idx, startpos, endpos = self.__get_next_slice()
                     self.__save_status()
                     self.__threadcond.release()
+                if len(SyncY.synctask[self.__fnmd5][0][5]) > SyncY.config['threadnumber'] * 4:
+                    return 1
                 retcode = 0
                 responses = None
         except Exception, e:
