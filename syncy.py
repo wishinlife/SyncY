@@ -7,8 +7,8 @@
 #  QQ Group: 59160264
 #  E-Mail: wishinlife@qq.com
 #  Web Home: http://www.syncy.cn
-#  Update date: 2015-06-23
-#  VERSION: 2.5.2
+#  Update date: 2015-09-12
+#  VERSION: 2.5.3
 #  Required packages: kmod-nls-utf8, libopenssl, libcurl, python, python-curl, python-crypto
 #  If import python-crypto package, SyncY can support ARC4、Blowfish and AES encryption.
 #
@@ -42,23 +42,23 @@ except ImportError, ex:
 
 # set config_file and pidfile for your config storage path.
 if os.name == 'nt':
-    _CONFIG_FILE = './syncy'
-    _PIDFILE = './syncy.pid'
-    _CHARSET = 'GBK'    # windows charset
-    _TMP_DIR = os.environ['TMP'].replace('\\', '/')
+    __CONFIG_FILE__ = './syncy'
+    __PIDFILE__ = './syncy.pid'
+    __CHARSET__ = 'GBK'    # windows charset
+    __TMP_DIR__ = os.environ['TMP'].replace('\\', '/')
 else:
-    _CONFIG_FILE = '/etc/config/syncy'
-    _PIDFILE = '/var/run/syncy.pid'
-    _CHARSET = 'UTF-8'  # linux charset
-    _TMP_DIR = '/tmp'
+    __CONFIG_FILE__ = '/etc/config/syncy'
+    __PIDFILE__ = '/var/run/syncy.pid'
+    __CHARSET__ = 'UTF-8'  # linux charset
+    __TMP_DIR__ = '/tmp'
 
-if sys.getdefaultencoding() != _CHARSET:
+if sys.getdefaultencoding() != __CHARSET__:
     reload(sys)
-    sys.setdefaultencoding(_CHARSET)
+    sys.setdefaultencoding(__CHARSET__)
 
 #  Don't modify the following.
-_VERSION = '2.5.2'
-_DEBUG = False
+__VERSION__ = '2.5.3'
+__DEBUG__ = False
 __author__ = "WishInLife <wishinlife@qq.com>"
 
 if os.name == 'nt':
@@ -123,6 +123,7 @@ class SyncY:
     extraslice = None
     encryption = None
     encryptkey = ''
+    stop = False
     config = {
         'syncylog'		: '',
         'blocksize'		: 10,
@@ -149,8 +150,8 @@ class SyncY:
     def __init__(self, argv=sys.argv[1:]):
         self.__argv = argv
         if len(self.__argv) == 0 or self.__argv[0] in ['compress', 'convert', 'rebuild']:
-            if os.path.exists(_PIDFILE):
-                with open(_PIDFILE, 'r') as pidh:
+            if os.path.exists(__PIDFILE__):
+                with open(__PIDFILE__, 'r') as pidh:
                     mypid = pidh.read()
                 try:
                     os.kill(int(mypid), 0)
@@ -159,13 +160,13 @@ class SyncY:
                 else:
                     print("SyncY is running!")
                     sys.exit(0)
-            with open(_PIDFILE, 'w') as pidh:
+            with open(__PIDFILE__, 'w') as pidh:
                 pidh.write(str(os.getpid()))
-        if not (os.path.isfile(_CONFIG_FILE)):
-            sys.stderr.write('%s ERROR: Config file "%s" does not exist.\n' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), _CONFIG_FILE))
+        if not (os.path.isfile(__CONFIG_FILE__)):
+            sys.stderr.write('%s ERROR: Config file "%s" does not exist.\n' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), __CONFIG_FILE__))
             sys.exit(2)
 
-        with open(_CONFIG_FILE, 'r') as sycfg:
+        with open(__CONFIG_FILE__, 'r') as sycfg:
             line = sycfg.readline()
             section = ''
             while line:
@@ -235,7 +236,7 @@ class SyncY:
                 device_code = responses['device_code']
                 user_code = responses['user_code']
                 if len(self.__argv) != 0 and self.__argv[0] == 'sybind':
-                    with open(_TMP_DIR + '/syncy.bind', 'w') as sybind:
+                    with open(__TMP_DIR__ + '/syncy.bind', 'w') as sybind:
                         sybind.write('{"user_code":"%s","device_code":"%s","time":%d}' % (user_code, device_code, int(time.time())))
                     sys.exit(0)
                 SyncY.syncytoken['device_code'] = device_code
@@ -248,17 +249,17 @@ class SyncY:
                 raw_input('     3. After granting access to the application, come back here and press [Enter] to continue.')
                 print(' ')
             if len(self.__argv) != 0 and self.__argv[0] == 'cpbind':
-                with open(_TMP_DIR + '/syncy.bind', 'r') as sybind:
+                with open(__TMP_DIR__ + '/syncy.bind', 'r') as sybind:
                     bindinfo = sybind.read()
                 bindinfo = json.loads(bindinfo)
-                os.remove(_TMP_DIR + '/syncy.bind')
+                os.remove(__TMP_DIR__ + '/syncy.bind')
                 if 'device_code' in bindinfo:
                     if int(time.time()) - int(bindinfo['time']) >= 1800:
                         sys.exit(4)
                     SyncY.syncytoken['device_code'] = bindinfo['device_code']
                 else:
                     sys.exit(5)
-            retcode, responses = sycurl.request('https://www.syncy.cn/syserver', {}, {'method': 'get_device_token', 'code': SyncY.syncytoken['device_code'], 'edition': 'python', 'ver': _VERSION}, 'POST', SYCurl.Normal)
+            retcode, responses = sycurl.request('https://www.syncy.cn/syserver', {}, {'method': 'get_device_token', 'code': SyncY.syncytoken['device_code'], 'edition': 'python', 'ver': __VERSION__}, 'POST', SYCurl.Normal)
             responses = json.loads(responses)
             if retcode != 200 or 'error_code' in responses:
                 print('%s ERROR(Errno:%d): Get device token failed: %s.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), retcode, responses['error_msg']))
@@ -359,11 +360,11 @@ class SyncY:
             sys.stderr.close()
             sys.stderr = self.__class__.oldSTDERR
             sys.stdout = self.__class__.oldSTDOUT
-        if os.path.exists(_PIDFILE):
-            with open(_PIDFILE, 'r') as pidh:
+        if os.path.exists(__PIDFILE__):
+            with open(__PIDFILE__, 'r') as pidh:
                 lckpid = pidh.read()
             if os.getpid() == int(lckpid):
-                os.remove(_PIDFILE)
+                os.remove(__PIDFILE__)
 
     @staticmethod
     def synccount_increase():
@@ -409,29 +410,33 @@ class SyncY:
         retcode, responses = sycurl.request('https://openapi.baidu.com/rest/2.0/passport/users/getLoggedInUser', {}, {'access_token': SyncY.syncytoken['access_token']}, 'POST', SYCurl.Normal)
         responses = json.loads(responses)
         if 'uid' in responses:
-            retcode, responses = sycurl.request('https://www.syncy.cn/syserver', {}, {'method': 'get_last_version', 'edition': 'python', 'ver': _VERSION, 'uid': responses['uid'], 'code': SyncY.syncytoken['device_code']}, 'POST', SYCurl.Normal)
+            retcode, responses = sycurl.request('https://www.syncy.cn/syserver', {}, {'method': 'get_last_version', 'edition': 'python', 'ver': __VERSION__, 'uid': responses['uid'], 'code': SyncY.syncytoken['device_code']}, 'POST', SYCurl.Normal)
             if retcode == 200 and responses.find('#') > -1:
                 (lastver, smessage) = responses.strip('\n').split('#', 1)
-                if lastver > _VERSION:
-                    printlog('%s WARNING: %s' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), smessage.encode(_CHARSET)))
+                if lastver > __VERSION__:
+                    printlog('%s WARNING: %s' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), smessage.encode(__CHARSET__)))
         if (SyncY.syncytoken['refresh_date'] + SyncY.syncytoken['expires_in'] - 864000) > int(time.time()):
             return
-        retcode, responses = sycurl.request('https://www.syncy.cn/syserver', {}, {'method': 'refresh_access_token', 'refresh_token': SyncY.syncytoken['refresh_token'], 'code': SyncY.syncytoken['device_code']}, 'POST', SYCurl.Normal)
-        responses = json.loads(responses)
-        if retcode != 200 or 'error_code' in responses:
-            printlog('%s ERROR(Errno:%d): Refresh access token failed: %s.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), retcode, responses['error_msg']))
+        retcode, retbody = sycurl.request('https://www.syncy.cn/syserver', {}, {'method': 'refresh_access_token', 'refresh_token': SyncY.syncytoken['refresh_token'], 'code': SyncY.syncytoken['device_code']}, 'POST', SYCurl.Normal)
+        responses = json.loads(retbody)
+        try:
+            if retcode != 200:
+                printlog('%s ERROR(Errno:%d): Refresh access token failed: %s.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), retcode, responses['error_msg']))
+                return 1
+            SyncY.syncytoken['refresh_token'] = responses['refresh_token']
+            SyncY.syncytoken['access_token'] = responses['access_token']
+            SyncY.syncytoken['expires_in'] = int(responses['expires_in'])
+            SyncY.syncytoken['refresh_date'] = int(time.time())
+        except KeyError:
+            printlog('%s ERROR(Errno:%d): Refresh access token failed: %s.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), retcode, retbody))
             return 1
-        SyncY.syncytoken['refresh_token'] = responses['refresh_token']
-        SyncY.syncytoken['access_token'] = responses['access_token']
-        SyncY.syncytoken['expires_in'] = int(responses['expires_in'])
-        SyncY.syncytoken['refresh_date'] = int(time.time())
         self.__save_config()
         printlog('%s INFO: Refresh access token success.' % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
         return 0
 
     @staticmethod
     def __save_config():
-        with open('%s.tmp' % _CONFIG_FILE, 'w') as sycfg:
+        with open('%s.tmp' % __CONFIG_FILE__, 'w') as sycfg:
             sycfg.write("\nconfig syncy\n")
             for key, value in SyncY.config.items():
                 sycfg.write("\toption %s '%s'\n" % (key, str(value)))
@@ -444,12 +449,12 @@ class SyncY:
                     sycfg.write("\toption %s '%s'\n" % (key, str(value)))
             sycfg.flush()
             os.fsync(sycfg.fileno())
-        if os.path.exists('%s.tmp' % _CONFIG_FILE):
-            pmeta = os.stat(_CONFIG_FILE)
-            rename('%s.tmp' % _CONFIG_FILE, _CONFIG_FILE)
+        if os.path.exists('%s.tmp' % __CONFIG_FILE__):
+            pmeta = os.stat(__CONFIG_FILE__)
+            rename('%s.tmp' % __CONFIG_FILE__, __CONFIG_FILE__)
             if os.name == 'posix':
-                os.lchown(_CONFIG_FILE, pmeta.st_uid, pmeta.st_gid)
-                os.chmod(_CONFIG_FILE, pmeta.st_mode)
+                os.lchown(__CONFIG_FILE__, pmeta.st_uid, pmeta.st_gid)
+                os.chmod(__CONFIG_FILE__, pmeta.st_mode)
 
     @staticmethod
     def __catpath(*names):
@@ -491,7 +496,7 @@ class SyncY:
 
     @staticmethod
     def __get_pcs_filelist(pcspath, startindex, endindex):
-        if _DEBUG:
+        if __DEBUG__:
             printlog('%s Info(%s): Start get pcs file list(%d-%d) of "%s".' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), threading.currentThread().name, startindex, endindex, pcspath))
         sycurl = SYCurl()
         retcode, responses = sycurl.request('https://pcs.baidu.com/rest/2.0/pcs/file', {'method': 'list', 'access_token': SyncY.syncytoken['access_token'], 'path': pcspath, 'limit': '%d-%d' % (startindex, endindex), 'by': 'name', 'order': 'asc'}, '', 'GET', SYCurl.Normal)
@@ -509,7 +514,7 @@ class SyncY:
             return 1, []
         finally:
             del responses
-            if _DEBUG:
+            if __DEBUG__:
                 printlog('%s Info(%s): Complete get pcs file list(%d-%d) of "%s".' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), threading.currentThread().name, startindex, endindex, pcspath))
 
     @staticmethod
@@ -523,7 +528,7 @@ class SyncY:
             elif (retcode != 200 and responses['error_code'] == 31066) or (retcode == 200 and responses['list'][0]['isdir'] == 0):
                 retcode, responses = sycurl.request('https://pcs.baidu.com/rest/2.0/pcs/file', {'method': 'mkdir', 'access_token': SyncY.syncytoken['access_token'], 'path': pcspath}, '', 'POST', SYCurl.Normal)
                 responses = json.loads(responses)
-                if retcode == 200 and responses['path'].encode(_CHARSET) == pcspath:
+                if retcode == 200 and responses['path'].encode(__CHARSET__) == pcspath:
                     return 0
             printlog('%s ERROR(Errno:%d): Create PCS directory "%s" failed: %s.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), retcode, pcspath, responses['error_msg']))
             return 1
@@ -731,7 +736,7 @@ class SyncY:
             try:
                 if fnlist[fi][0:1] == '.' or self.__check_excludefiles(lfullpath) == 1 or self.__check_pcspath(rdir, fnlist[fi]) == 1:
                     continue
-                if _DEBUG:
+                if __DEBUG__:
                     printlog('%s Info(%s): Start upload "%s".' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), threading.currentThread().name, lfullpath))
                 rfullpath = '%s/%s' % (rdir, fnlist[fi])
                 if os.path.isdir(lfullpath):
@@ -771,7 +776,7 @@ class SyncY:
         lfnlist.sort()
         while retcode == 0:
             for i in xrange(len(rfnlist)):
-                rfullpath = rfnlist[i]['path'].encode(_CHARSET)
+                rfullpath = rfnlist[i]['path'].encode(__CHARSET__)
                 fnname = os.path.basename(rfullpath)
                 lfullpath = '%s/%s' % (ldir, fnname)
                 try:
@@ -784,7 +789,7 @@ class SyncY:
                                 break
                     else:
                         continue
-                    if _DEBUG:
+                    if __DEBUG__:
                         printlog('%s Info(%s): Start upload+ "%s".' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), threading.currentThread().name, lfullpath))
                     if (rfnlist[i]['isdir'] == 1 and os.path.isfile(lfullpath)) or (rfnlist[i]['isdir'] == 0 and os.path.isdir(lfullpath)):
                         if SyncY.config['ondup'] == 'rename':
@@ -878,13 +883,13 @@ class SyncY:
             return 1
         while retcode == 0:
             for i in xrange(len(rfnlist)):
-                rfullpath = rfnlist[i]['path'].encode(_CHARSET)
+                rfullpath = rfnlist[i]['path'].encode(__CHARSET__)
                 fnname = os.path.basename(rfullpath)
                 if self.__check_excludefiles(rfullpath) == 1:
                     continue
                 lfullpath = '%s/%s' % (ldir, fnname)
                 try:
-                    if _DEBUG:
+                    if __DEBUG__:
                         printlog('%s Info(%s): Start download "%s".' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), threading.currentThread().name, rfullpath))
                     if rfnlist[i]['isdir'] == 1:
                         if os.path.exists(lfullpath) and os.path.isfile(lfullpath):
@@ -944,13 +949,13 @@ class SyncY:
             return 1
         while retcode == 0:
             for i in xrange(0, len(rfnlist), 1):
-                rfullpath = rfnlist[i]['path'].encode(_CHARSET)
+                rfullpath = rfnlist[i]['path'].encode(__CHARSET__)
                 fnname = os.path.basename(rfullpath)
                 if self.__check_excludefiles(rfullpath) == 1:
                     continue
                 lfullpath = '%s/%s' % (ldir, fnname)
                 try:
-                    if _DEBUG:
+                    if __DEBUG__:
                         printlog('%s Info(%s): Start download+ "%s".' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), threading.currentThread().name, rfullpath))
                     if rfnlist[i]['isdir'] == 1:
                         if os.path.exists(lfullpath) and os.path.isfile(lfullpath):
@@ -1004,16 +1009,18 @@ class SyncY:
         return 0
 
     def __syncy_sync(self, ldir, rdir):
+        del_rfiles = 0
+        del_lfiles = 0
         startidx = 0
         retcode, rfnlist = self.__get_pcs_filelist(rdir, startidx, SyncY.config['listnumber'])
         if retcode != 0 and retcode != 31066:
             self.errorcount_increase()
-            return 1
+            return 0, 0
         lfnlist = os.listdir(ldir)
         lfnlist.sort()
         while retcode == 0:
             for i in xrange(len(rfnlist)):
-                rfullpath = rfnlist[i]['path'].encode(_CHARSET)
+                rfullpath = rfnlist[i]['path'].encode(__CHARSET__)
                 fnname = os.path.basename(rfullpath)
                 if self.__check_excludefiles(rfullpath) == 1:
                     continue
@@ -1024,7 +1031,7 @@ class SyncY:
                             if lfnlist[idx] == fnname:
                                 del lfnlist[idx]
                                 break
-                    if _DEBUG:
+                    if __DEBUG__:
                         printlog('%s Info(%s): Start sync "%s".' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), threading.currentThread().name, lfullpath))
                     if rfnlist[i]['isdir'] == 1:
                         if os.path.exists(lfullpath) and os.path.isfile(lfullpath):
@@ -1042,13 +1049,19 @@ class SyncY:
                                 if SyncY.TaskSemaphore.acquire():
                                     synctask = SYTask(SYTask.Upload, lfullpath, int(fmeta.st_mtime), fmeta.st_size, fnmd5, rfullpath, 0, 0, '', 'overwrite')
                                     synctask.start()
+                        elif not (os.path.exists(lfullpath)):
+                            os.mkdir(lfullpath)
+                            if os.name == 'posix':
+                                pmeta = os.stat(ldir)
+                                os.lchown(lfullpath, pmeta.st_uid, pmeta.st_gid)
+                                os.chmod(lfullpath, pmeta.st_mode)
+                            l_del, r_del = self.__syncy_sync(lfullpath, rfullpath)
+                            if r_del > 0 and self.__get_pcs_filelist(rfullpath, 0, 10) == (0, []):
+                                os.rmdir(lfullpath)
+                                self.__rm_pcsfile(rfullpath, True)
+                                del_rfiles += 1
+                            continue
                         else:
-                            if not (os.path.exists(lfullpath)):
-                                os.mkdir(lfullpath)
-                                if os.name == 'posix':
-                                    pmeta = os.stat(ldir)
-                                    os.lchown(lfullpath, pmeta.st_uid, pmeta.st_gid)
-                                    os.chmod(lfullpath, pmeta.st_mode)
                             self.__syncy_sync(lfullpath, rfullpath)
                             continue
                     else:
@@ -1126,6 +1139,7 @@ class SyncY:
                                     self.failcount_increase()
                                 else:
                                     self.synccount_increase()
+                                del_rfiles += 1
                                 continue
                             else:
                                 sync_op = SYTask.Download
@@ -1135,31 +1149,35 @@ class SyncY:
                 except struct.error, e:
                     printlog('%s ERROR: Struct.pack file mate of "%s" error: %s\n%s.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), lfullpath, e, traceback.format_exc()))
                     self.errorcount_increase()
-                    return 1
+                    return 0, 0
                 except Exception, e:
                     printlog('%s ERROR: Sync file "%s" failed. %s\n%s' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), lfullpath, e, traceback.format_exc()))
                     self.errorcount_increase()
-                    return 1
+                    return 0, 0
             if len(rfnlist) < SyncY.config['listnumber']:
                 break
             startidx += SyncY.config['listnumber']
             retcode, rfnlist = self.__get_pcs_filelist(rdir, startidx, startidx + SyncY.config['listnumber'])
             if retcode != 0:
                 self.errorcount_increase()
-                return 1
+                return 0, 0
         for idx in xrange(len(lfnlist)):
             lfullpath = '%s/%s' % (ldir, lfnlist[idx])
             if lfnlist[idx][0:1] == '.' or self.__check_excludefiles(lfullpath) == 1 or self.__check_pcspath(rdir, lfnlist[idx]) == 1:
                 continue
             rfullpath = '%s/%s' % (rdir, lfnlist[idx])
             try:
-                if _DEBUG:
+                if __DEBUG__:
                     printlog('%s Info(%s): Start sync(upload) "%s".' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), threading.currentThread().name, lfullpath))
                 if os.path.isdir(lfullpath):
-                    self.__syncy_sync(lfullpath, rfullpath)
-                    dir_files = os.listdir(ldir)
-                    if len(dir_files) == 0:
-                        os.rmdir(lfullpath)
+                    if len(os.listdir(lfullpath)) == 0:
+                        if self.__check_create_pcsdir(rfullpath) != 0:
+                            self.failcount_increase()
+                    else:
+                        l_del, r_del = self.__syncy_sync(lfullpath, rfullpath)
+                        if l_del > 0 and len(os.listdir(lfullpath)) == 0:
+                            os.rmdir(lfullpath)
+                            del_lfiles += 1
                 elif os.path.isfile(lfullpath):
                     fmeta = os.stat(lfullpath)
                     fmtime = int(fmeta.st_mtime)
@@ -1171,6 +1189,7 @@ class SyncY:
                             self.failcount_increase()
                         else:
                             self.synccount_increase()
+                        del_lfiles += 1
                         continue
                     elif os.path.exists('%s.db.syy' % lfullpath):
                         with open('%s.db.syy' % lfullpath, 'r') as infoh:
@@ -1188,12 +1207,12 @@ class SyncY:
             except struct.error, e:
                 printlog('%s ERROR: Struct.pack file mate of "%s" error: %s\n%s.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), lfullpath, e, traceback.format_exc()))
                 self.errorcount_increase()
-                return 1
+                return 0, 0
             except Exception, e:
                 printlog('%s ERROR: Sync file "%s" failed. %s\n%s' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), lfullpath, e, traceback.format_exc()))
                 self.errorcount_increase()
-                return 1
-        return 0
+                return 0, 0
+        return del_lfiles, del_rfiles
 
     def __start_sync(self):
         self.__get_pcs_quota()
@@ -1307,7 +1326,7 @@ class SyncY:
     def __test_chinese(tdir=''):
         unicode_str = '\u4e2d\u6587\u8f6c\u7801\u6d4b\u8bd5'
         unicode_str = eval('u"%s"' % unicode_str)
-        unicode_str = unicode_str.encode(_CHARSET)
+        unicode_str = unicode_str.encode(__CHARSET__)
         with open('%s/%s' % (tdir, unicode_str), 'w') as chnfn:
             chnfn.write(unicode_str)
 
@@ -1373,7 +1392,7 @@ class SyncY:
             return 1
         while retcode == 0:
             for i in xrange(len(rfnlist)):
-                rfullpath = rfnlist[i]['path'].encode(_CHARSET)
+                rfullpath = rfnlist[i]['path'].encode(__CHARSET__)
                 fnname = os.path.basename(rfullpath)
                 lfullpath = '%s/%s' % (localpath, fnname)
                 if self.__check_excludefiles(rfullpath) == 1 or self.__check_excludefiles(lfullpath) == 1:
@@ -1450,7 +1469,7 @@ class SyncY:
             lfnlist.sort()
         while retcode == 0:
             for i in xrange(len(rfnlist)):
-                rfullpath = rfnlist[i]['path'].encode(_CHARSET)
+                rfullpath = rfnlist[i]['path'].encode(__CHARSET__)
                 fnname = os.path.basename(rfullpath)
                 if self.__check_excludefiles(rfullpath) == 1:
                     continue
@@ -1634,7 +1653,7 @@ class SYCurl:
         self.__op = rtype
         while retrycnt < SyncY.config['retrytimes']:
             retrycnt += 1
-            if _DEBUG:
+            if __DEBUG__:
                 printlog('%s Info(%s): Start curl request(%s) %d times for %s.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), threading.currentThread().name, rdata, retrycnt, fnname))
             if self.__op != SYCurl.Normal:
                 startpos, self.__endpos = rdata.split('-', 1)
@@ -1704,7 +1723,7 @@ class SYCurl:
                 return -1, '{"error_code":%d,"error_msg":"%s"}' % (-1, traceback.format_exc().replace('\n', '\\n').replace('"', '\''))
             finally:
                 curl.close()
-                if _DEBUG:
+                if __DEBUG__:
                     printlog('%s Info(%s): Complete curl request(%s) %d times for %s.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), threading.currentThread().name, rdata, retrycnt, fnname))
 
 
@@ -1740,7 +1759,7 @@ class SYTask(threading.Thread):
                 self.__blocksize = (0x100000 - (blocksize & 0xfffff) & 0xfffff) + blocksize
 
     def run(self):
-        if _DEBUG:
+        if __DEBUG__:
             printlog('%s Info(%s): start run task(op:%s) for %s.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.name, str(self.__op), self.__filepath))
         try:
             ret = 1
@@ -1772,7 +1791,7 @@ class SYTask(threading.Thread):
         finally:
             del SyncY.synctask[self.__fnmd5]
             SyncY.TaskSemaphore.release()
-        if _DEBUG:
+        if __DEBUG__:
             printlog('%s Info(%s): exit task(op:%s) for %s.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.name, str(self.__op), self.__filepath))
 
     def __create_emptyfile(self):
@@ -1844,7 +1863,7 @@ class SYTask(threading.Thread):
         return '%x' % crc, cmd5, m.hexdigest()
 
     def __upload_file(self):
-        if _DEBUG:
+        if __DEBUG__:
             printlog('%s Info(%s): start upload whole file "%s".' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.name, self.__filepath))
         sycurl = SYCurl()
         retcode, responses = sycurl.request('https://c.pcs.baidu.com/rest/2.0/pcs/file', {'method': 'upload', 'access_token': SyncY.syncytoken['access_token'], 'path': self.__pcspath, 'ondup': self.__ondup}, '0-%d' % (os.stat(self.__filepath).st_size - 1), 'POST', SYCurl.Upload, self.__filepath)
@@ -1865,7 +1884,7 @@ class SYTask(threading.Thread):
         return 0
 
     def __rapid_uploadfile(self):
-        if _DEBUG:
+        if __DEBUG__:
             printlog('%s Info(%s): start rapid upload file "%s".' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.name, self.__filepath))
         crc, contentmd5, slicemd5 = self.__rapid_checkcode()
         sycurl = SYCurl()
@@ -1901,7 +1920,7 @@ class SYTask(threading.Thread):
             return 0
 
     def __slice_uploadfile(self):
-        if _DEBUG:
+        if __DEBUG__:
             printlog('%s Info(%s): start slice upload file "%s".' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.name, self.__filepath))
         if (self.__fsize > 20 * 1073741824 and not SyncY.extraslice) or (SyncY.extraslice and self.__fsize > 20 * 1073741824 - 10340):
             printlog('%s ERROR: File "%s" size exceeds limit, max size must equal or less than 20G.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.__filepath))
@@ -1945,7 +1964,7 @@ class SYTask(threading.Thread):
             if SyncY.synctask[self.__fnmd5][0][4] > 0:
                 threadcond.wait()
             threadcond.release()
-        if _DEBUG:
+        if __DEBUG__:
             printlog('%s Info(%s): all threads is exit for upload file "%s".' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.name, self.__filepath))
         if len(SyncY.synctask[self.__fnmd5][0][5]) > 0:
             printlog('%s ERROR: Slice upload file "%s" failed.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.__filepath))
@@ -1955,7 +1974,7 @@ class SYTask(threading.Thread):
             param['block_list'].append(SyncY.synctask[self.__fnmd5][i][3])
         tmpsize = 0
         if SyncY.extraslice:
-            tmpfile = '%s/syncy-%s-extraslice.tmp' % (_TMP_DIR, self.name)
+            tmpfile = '%s/syncy-%s-extraslice.tmp' % (__TMP_DIR__, self.name)
             tmpsize = self.__create_random_tmpfile(tmpfile, self.__fsize)
             if tmpsize > 0:
                 sycurl = SYCurl()
@@ -1990,7 +2009,7 @@ class SYTask(threading.Thread):
         return 0
 
     def __download_file(self):
-        if _DEBUG:
+        if __DEBUG__:
             printlog('%s Info(%s): start download file "%s".' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.name, self.__filepath))
         if os.path.exists('%s.db.syy' % self.__filepath) and os.path.exists('%s.syy' % self.__filepath):
             with open('%s.db.syy' % self.__filepath, 'r') as dlfn:
@@ -2013,12 +2032,12 @@ class SYTask(threading.Thread):
             return 1
         if self.__rsize > 0:
             if self.__rsize <= self.__blocksize + 1048576:
-                if _DEBUG:
+                if __DEBUG__:
                     printlog('%s Info(%s): start download whole file "%s".' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.name, self.__filepath))
                 sycurl = SYCurl()
                 retcode, responses = sycurl.request('https://d.pcs.baidu.com/rest/2.0/pcs/file', {'method': 'download', 'access_token': SyncY.syncytoken['access_token'], 'path': self.__pcspath}, '0-%d' % (self.__rsize - 1), 'GET', SYCurl.Download, '%s.syy' % self.__filepath)
                 if (retcode != 200 and retcode != 206) or responses != '':
-                    if _DEBUG:
+                    if __DEBUG__:
                         printlog('%s Info(%s): download file "%s" failed: %s.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.name, self.__filepath, responses))
                     responses = json.loads(responses)
                     printlog('%s ERROR(Errno:%d): Download file "%s" failed: %s.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), retcode, self.__pcspath, responses['error_msg']))
@@ -2047,7 +2066,7 @@ class SYTask(threading.Thread):
                     if SyncY.synctask[self.__fnmd5][0][4] > 0:
                         threadcond.wait()
                     threadcond.release()
-                if _DEBUG:
+                if __DEBUG__:
                     printlog('%s Info(%s): all threads is exit for download file "%s".' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.name, self.__filepath))
                 if len(SyncY.synctask[self.__fnmd5][0][5]) > 0:
                     printlog('%s ERROR: Download file "%s" failed.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.__pcspath))
@@ -2098,7 +2117,7 @@ class SYThread(threading.Thread):
         self.__blocksize = blocksize
 
     def run(self):
-        if _DEBUG:
+        if __DEBUG__:
             printlog('%s Info(%s): start thread for %s: %s.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.name, SyncY.synctask[self.__fnmd5][0][0], self.__filepath))
         idx = 0
         try:
@@ -2115,7 +2134,7 @@ class SYThread(threading.Thread):
                 elif idx == -1:
                     return 1
                 if SyncY.synctask[self.__fnmd5][0][0] == 'upload':
-                    if _DEBUG:
+                    if __DEBUG__:
                         printlog('%s Info(%s): Start upload slice(idx:%d) for "%s".' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.name, idx, self.__filepath))
                     retcode, responses = sycurl.request('https://c.pcs.baidu.com/rest/2.0/pcs/file', {'method': 'upload', 'access_token': SyncY.syncytoken['access_token'], 'type': 'tmpfile'}, '%d-%d' % (startpos, endpos), 'POST', SYCurl.Upload, self.__filepath)
                     responses = json.loads(responses)
@@ -2124,21 +2143,21 @@ class SYThread(threading.Thread):
                         status = 2
                     else:
                         status = 1
-                    if _DEBUG:
+                    if __DEBUG__:
                         printlog('%s Info(%s): Complete upload slice(idx:%d) for "%s".' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.name, idx, self.__filepath))
                 elif SyncY.synctask[self.__fnmd5][0][0] == 'download':
-                    if _DEBUG:
+                    if __DEBUG__:
                         printlog('%s Info(%s): Start download slice(idx:%d) for "%s".' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.name, idx, self.__filepath))
                     retcode, responses = sycurl.request('https://d.pcs.baidu.com/rest/2.0/pcs/file', {'method': 'download', 'access_token': SyncY.syncytoken['access_token'], 'path': self.__pcspath}, '%d-%d' % (startpos, endpos), 'GET', SYCurl.Download, '%s.syy' % self.__filepath)
                     if (retcode != 200 and retcode != 206) or responses != '':
-                        if _DEBUG:
+                        if __DEBUG__:
                             printlog('%s Info(%s): Slice download(idx:%d) for "%s" failed: %s.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.name, idx, self.__filepath, responses))
                         responses = json.loads(responses)
                         printlog('%s ERROR(Errno:%d): Slice download file "%s" failed: %s.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), retcode, self.__pcspath, responses['error_msg']))
                         status = 2
                     else:
                         status = 1
-                    if _DEBUG:
+                    if __DEBUG__:
                         printlog('%s Info(%s): Complete download slice(idx:%d) for "%s".' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.name, idx, self.__filepath))
                 else:
                     printlog('%s ERROR: Unknown operation(%s) of threading operation.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), SyncY.synctask[self.__fnmd5][0][0]))
@@ -2181,6 +2200,16 @@ class SYThread(threading.Thread):
         except Exception, e:
             printlog('%s ERROR: Exception error occurred on save task status(%s). \n%s .\n%s' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.__filepath, e, traceback.format_exc()))
 
+    def __save_status2(self, idx, startpos=0, endpos=0, status=0, rmd5='0' * 32):
+        with open('%s.db.syy' % self.__filepath, 'wb') as dbfile:
+            if idx < 1:
+                return
+            dbfile.seek(idx * 35)
+            dbfile.write(struct.pack('>H2qB16s', idx, startpos, endpos, status, rmd5.decode('hex')))
+            dbfile.flush()
+            os.fsync(dbfile.fileno())
+            dbfile.close()
+
     def __get_next_slice(self):
         try:
             idx, startpos, endpos = (0, 0, 0)
@@ -2212,7 +2241,7 @@ class SYThread(threading.Thread):
 
 if __name__ == '__main__':
     if len(sys.argv) > 1 and sys.argv[1] == 'version':
-        print(_VERSION)
+        print(__VERSION__)
     else:
         sy = SyncY(sys.argv[1:])
         sy.start()
