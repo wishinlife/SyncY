@@ -7,8 +7,8 @@
 #  QQ Group: 59160264
 #  E-Mail: wishinlife@qq.com
 #  Web Home: http://www.syncy.cn
-#  Update date: 2015-09-12
-#  VERSION: 2.5.3
+#  Update date: 2017-02-09
+#  VERSION: 2.6.0
 #  Required packages: kmod-nls-utf8, libopenssl, libcurl, python, python-curl, python-crypto
 #  If import python-crypto package, SyncY can support ARC4、Blowfish and AES encryption.
 #
@@ -57,7 +57,7 @@ if sys.getdefaultencoding() != __CHARSET__:
     sys.setdefaultencoding(__CHARSET__)
 
 #  Don't modify the following.
-__VERSION__ = '2.5.3'
+__VERSION__ = '2.6.0'
 __DEBUG__ = False
 __author__ = "WishInLife <wishinlife@qq.com>"
 
@@ -125,6 +125,8 @@ class SyncY:
     encryptkey = ''
     stop = False
     config = {
+        'apikey'		: '',
+        'secretkey'		: '',
         'syncylog'		: '',
         'blocksize'		: 10,
         'ondup'			: 'rename',
@@ -144,7 +146,6 @@ class SyncY:
         'newname': re.compile(r'^(.*)(\.[^.]+)$'),
         'pcspath': re.compile(r'^[\s\.\n].*|.*[/<>\\|\*\?:\"].*|.*[\s\.\n]$')}
     syncytoken = {'synctotal': 0}
-    pcsroot = '/apps/SyncY'
     synctask = {}
 
     def __init__(self, argv=sys.argv[1:]):
@@ -204,10 +205,8 @@ class SyncY:
                             SyncY.syncytoken[m[0][0].strip('\'')] = m[0][1]
                     elif section == 'syncpath':
                         if m[0][0].strip('\'') == 'remotepath':
-                            if m[0][1].lower().startswith('/apps/syncy'):
-                                SyncY.syncpath[str(len(SyncY.syncpath) - 1)]['remotepath'] = m[0][1][11:]
-                            elif m[0][1].lower().startswith('/我的应用程序/syncy'):
-                                SyncY.syncpath[str(len(SyncY.syncpath) - 1)]['remotepath'] = m[0][1][len('/我的应用程序/syncy'):]
+                            if m[0][1].lower().startswith('/我的应用数据'):
+                                SyncY.syncpath[str(len(SyncY.syncpath) - 1)]['remotepath'] = '/apps' + m[0][1][len('/我的应用数据'):]
                             else:
                                 SyncY.syncpath[str(len(SyncY.syncpath) - 1)]['remotepath'] = m[0][1]
                         else:
@@ -225,10 +224,17 @@ class SyncY:
             sys.stderr = open(SyncY.config['syncylog'], 'a', 0)
             sys.stdout = sys.stderr
 
+        if SyncY.config['apikey'].strip(' ') == '':
+            print('%s ERROR: "apikey" must set.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())))
+            sys.exit(1)
+        if SyncY.config['secretkey'].strip(' ') == '':
+            print('%s ERROR: "secretkey" must set.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())))
+            sys.exit(1)
+
         if 'refresh_token' not in SyncY.syncytoken or SyncY.syncytoken['refresh_token'] == '' or (len(self.__argv) != 0 and self.__argv[0] in ['sybind', 'cpbind']):
             sycurl = SYCurl()
             if (('device_code' not in SyncY.syncytoken or SyncY.syncytoken['device_code'] == '') and len(self.__argv) == 0) or (len(self.__argv) != 0 and self.__argv[0] == 'sybind'):
-                retcode, responses = sycurl.request('https://www.syncy.cn/syserver', {}, {'method': 'bind_device', 'scope': 'basic,netdisk'}, 'POST', SYCurl.Normal)
+                retcode, responses = sycurl.request('https://openapi.baidu.com/oauth/2.0/device/code', {}, {'client_id': SyncY.config['apikey'], 'response_type': 'device_code', 'scope': 'basic,netdisk'}, 'POST', SYCurl.Normal)
                 responses = json.loads(responses)
                 if retcode != 200 or 'error_code' in responses:
                     print('%s ERROR(Errno:%d): Get device code failed: %s.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), retcode, responses['error_msg']))
@@ -259,7 +265,7 @@ class SyncY:
                     SyncY.syncytoken['device_code'] = bindinfo['device_code']
                 else:
                     sys.exit(5)
-            retcode, responses = sycurl.request('https://www.syncy.cn/syserver', {}, {'method': 'get_device_token', 'code': SyncY.syncytoken['device_code'], 'edition': 'python', 'ver': __VERSION__}, 'POST', SYCurl.Normal)
+            retcode, responses = sycurl.request('https://openapi.baidu.com/oauth/2.0/token', {}, {'grant_type': 'device_token', 'code': SyncY.syncytoken['device_code'], 'client_id': SyncY.config['apikey'], 'client_secret': SyncY.config['secretkey'],}, 'POST', SYCurl.Normal)
             responses = json.loads(responses)
             if retcode != 200 or 'error_code' in responses:
                 print('%s ERROR(Errno:%d): Get device token failed: %s.' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), retcode, responses['error_msg']))
@@ -417,7 +423,7 @@ class SyncY:
                     printlog('%s WARNING: %s' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), smessage.encode(__CHARSET__)))
         if (SyncY.syncytoken['refresh_date'] + SyncY.syncytoken['expires_in'] - 864000) > int(time.time()):
             return
-        retcode, retbody = sycurl.request('https://www.syncy.cn/syserver', {}, {'method': 'refresh_access_token', 'refresh_token': SyncY.syncytoken['refresh_token'], 'code': SyncY.syncytoken['device_code']}, 'POST', SYCurl.Normal)
+        retcode, retbody = sycurl.request('https://openapi.baidu.com/oauth/2.0/token', {}, {'grant_type': 'refresh_token', 'refresh_token': SyncY.syncytoken['refresh_token'], 'client_id': SyncY.config['apikey'], 'client_secret': SyncY.config['secretkey']}, 'POST', SYCurl.Normal)
         responses = json.loads(retbody)
         try:
             if retcode != 200:
@@ -1224,7 +1230,7 @@ class SyncY:
                 continue
             self.reset_counter()
             localpath = self.__catpath(SyncY.syncpath[str(i)]['localpath'])
-            remotepath = self.__catpath(SyncY.pcsroot, SyncY.syncpath[str(i)]['remotepath'])
+            remotepath = self.__catpath(SyncY.syncpath[str(i)]['remotepath'])
             ipath = ('%s:%s:%s' % (localpath, remotepath, SyncY.syncpath[str(i)]['synctype']))
             printlog('%s INFO: Start sync path "%s".' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), ipath))
             ckdir = 0
@@ -1366,7 +1372,7 @@ class SyncY:
                 continue
             printlog("%s INFO: Start rebuild sync data for directory '%s'." % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), SyncY.syncpath[str(i)]['localpath']))
             localpath = self.__catpath(SyncY.syncpath[str(i)]['localpath'])
-            remotepath = self.__catpath(SyncY.pcsroot, SyncY.syncpath[str(i)]['remotepath'])
+            remotepath = self.__catpath(SyncY.syncpath[str(i)]['remotepath'])
             SyncY.basedirlen = len(SyncY.syncpath[str(i)]['localpath'])
             SyncY.syncydb = '%s/.syncy.info.db' % SyncY.syncpath[str(i)]['localpath']
             if os.path.exists(SyncY.syncydb):
@@ -1572,9 +1578,9 @@ class SyncY:
         elif os.path.isfile(self.__argv[0]):
             fname = os.path.basename(self.__argv[0])
             if len(self.__argv) == 2:
-                pcsdir = self.__catpath(SyncY.pcsroot, self.__argv[1])
+                pcsdir = self.__catpath(self.__argv[1])
             else:
-                pcsdir = SyncY.pcsroot
+                pcsdir = ''
             if self.__check_pcspath(pcsdir, fname) == 0:
                 self.__upload_file_nosync(self.__argv[0], self.__catpath(pcsdir, fname))
         elif not (self.__argv[0] in ["sybind", "cpbind"]):
@@ -2238,6 +2244,15 @@ class SYThread(threading.Thread):
         except Exception, e:
             printlog('%s ERROR: Exception error occurred on get next slice of task(%s). \n%s .\n%s' % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), self.__filepath, e, traceback.format_exc()))
             return -1, 0, 0
+
+class Control(threading.Thread):
+    def __init__(self):
+        threading.Thread.__init__(self, name='Control')
+
+    def run(self):
+        host = '127.0.0.1'
+        port = '6999'
+
 
 if __name__ == '__main__':
     if len(sys.argv) > 1 and sys.argv[1] == 'version':

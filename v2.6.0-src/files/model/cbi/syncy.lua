@@ -10,7 +10,7 @@ You may obtain a copy of the License at
 
 	http://www.apache.org/licenses/LICENSE-2.0
 
-$Id: syncy.lua 2015-04-26 wishinlife $
+$Id: syncy.lua 2017-02-09 wishinlife $
 SyncY Author: wishinlife
 QQ: 57956720
 E-Mail: wishinlife@gmail.com, wishinlife@qq.com
@@ -175,8 +175,9 @@ sybind.write = function(self, section, value)
 	end
 end
 
-
 s:taboption("setting", Value, "syncylog", translate("日志文件"),translate("日志文件名必须包含完整路径名。"))
+s:taboption("setting", Value, "apikey", translate("API KEY"),translate("具有PCS API访问权限的APP的API KEY。")).rmempty = false
+s:taboption("setting", Value, "secretkey", translate("SECRET KEY"),translate("具有PCS API访问权限的APP的SECRET KEY。")).rmempty = false
 s:taboption("setting", Value, "tasknumber", translate("同时同步的任务数")).rmempty = false
 s:taboption("setting", Value, "threadnumber", translate("每个任务的线程数")).rmempty = false
 s:taboption("setting", Value, "blocksize", translate("分片上传下载块大小(M)")).rmempty = false
@@ -221,13 +222,13 @@ sen.rmempty = false
 sen.enabled = "1"
 sen.disabled = "0"
 
-pth = s:option(Value, "localpath", translate("本地目录"))
+pth = s:option(Value, "localpath", translate("本地目录"), translate("本地目录的完整路径名"))
 pth.rmempty = false
 if nixio.fs.access("/etc/config/fstab") then
         pth.titleref = luci.dispatcher.build_url("admin", "system", "fstab")
 end
 
-s:option(Value, "remotepath", translate("云端目录"), translate("必须为“/我的应用程序/SyncY”及其子目录")).rmempty = false
+s:option(Value, "remotepath", translate("云端目录"), translate("云端目录的完整路径名")).rmempty = false
 
 st = s:option(ListValue, "synctype", translate("同步类型"))
 st.default = "upload"
